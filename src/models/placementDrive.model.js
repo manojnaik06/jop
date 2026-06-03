@@ -20,7 +20,7 @@ const PlacementDriveSchema = new mongoose.Schema(
     },
     mode: {
       type: String,
-      enum: ['on-campus', 'off-campus', 'online'],
+      enum: ['on-campus', 'off-campus', 'online', 'offline', 'hybrid'],
       default: 'on-campus',
     },
     location: {
@@ -58,8 +58,8 @@ const PlacementDriveSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'closed'],
-      default: 'active',
+      enum: ['active', 'closed', 'open', 'completed'],
+      default: 'open',
     },
     externalId: {
       type: String,

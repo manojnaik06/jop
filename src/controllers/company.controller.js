@@ -81,7 +81,7 @@ const getCompanyById = async (req, res) => {
 // @route   POST /api/companies
 // @access  Private (Placement_officer/Admin only)
 const createCompany = async (req, res) => {
-  const { name, defaultPackage, eligibleDepartments, minimumCgpa, status } = req.body;
+  const { name, defaultPackage, eligibleDepartments, minimumCgpa, status, role, package: pkgVal, driveDate, companyId } = req.body;
 
   try {
     // Validate required fields
@@ -97,15 +97,20 @@ const createCompany = async (req, res) => {
     }
 
     // Validate package bounds
-    if (defaultPackage !== undefined) {
-      if (typeof defaultPackage !== 'number' || defaultPackage < 0) {
-        return errorResponse(res, 400, 'Default package cannot be negative');
+    const pkgToUse = defaultPackage !== undefined ? defaultPackage : (pkgVal !== undefined ? pkgVal : undefined);
+    if (pkgToUse !== undefined) {
+      if (typeof pkgToUse !== 'number' || pkgToUse < 0) {
+        return errorResponse(res, 400, 'Package cannot be negative');
       }
     }
 
     const company = await Company.create({
+      companyId: companyId,
       name: name.trim(),
-      defaultPackage: defaultPackage || 0,
+      defaultPackage: pkgToUse || 0,
+      package: pkgToUse || 0,
+      role: role || '',
+      driveDate: driveDate,
       eligibleDepartments: Array.isArray(eligibleDepartments) ? eligibleDepartments : [],
       minimumCgpa: minimumCgpa || 0,
       status: status || 'active',
@@ -137,10 +142,16 @@ const updateCompany = async (req, res) => {
       }
     }
 
-    if (req.body.defaultPackage !== undefined) {
+    if (req.body.package !== undefined) {
+      if (typeof req.body.package !== 'number' || req.body.package < 0) {
+        return errorResponse(res, 400, 'Package cannot be negative');
+      }
+      req.body.defaultPackage = req.body.package;
+    } else if (req.body.defaultPackage !== undefined) {
       if (typeof req.body.defaultPackage !== 'number' || req.body.defaultPackage < 0) {
         return errorResponse(res, 400, 'Default package cannot be negative');
       }
+      req.body.package = req.body.defaultPackage;
     }
 
     if (req.body.name && typeof req.body.name !== 'string') {

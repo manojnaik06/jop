@@ -22,7 +22,7 @@ const InterviewSchema = new mongoose.Schema(
     },
     result: {
       type: String,
-      enum: ['pending', 'passed', 'failed'],
+      enum: ['pending', 'pass', 'fail', 'passed', 'failed'],
       default: 'pending',
     },
     notes: {
@@ -46,7 +46,7 @@ InterviewSchema.pre('save', async function (next) {
 
     // WORKFLOW: Rejected applications cannot receive interviews
     if (application.status === 'rejected') {
-      return next(new Error('Cannot schedule interview for a rejected application'));
+      return next(new Error('Rejected application cannot receive interview'));
     }
 
     // Validate scheduledAt is in the future
@@ -79,7 +79,7 @@ InterviewSchema.pre('findOneAndUpdate', async function (next) {
 
       // WORKFLOW: Selected candidates cannot be rescheduled
       if (application && application.status === 'selected') {
-        return next(new Error('Cannot reschedule interview for a selected candidate'));
+        return next(new Error('Selected candidate cannot be rescheduled'));
       }
 
       // Validate new date is in the future

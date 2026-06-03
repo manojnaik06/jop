@@ -32,8 +32,15 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Hash password before saving
+// Hash password and sanitize fields before saving
 UserSchema.pre('save', async function (next) {
+  if (this.name) {
+    this.name = this.name.trim().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  if (this.email) {
+    this.email = this.email.trim().toLowerCase();
+  }
+
   if (!this.isModified('password')) {
     return next();
   }

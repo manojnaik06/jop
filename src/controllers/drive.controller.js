@@ -29,39 +29,30 @@ const getDrives = async (req, res) => {
 
     // FILTER: Status filter
     if (status) {
-      const validStatuses = ['active', 'closed'];
-      if (validStatuses.includes(status.toLowerCase())) {
-        filter.status = status.toLowerCase();
-      }
+      filter.status = status.toLowerCase();
     }
 
     // FILTER: Company filter (by company ID or company name)
     if (company) {
-      // Try to match by company ID first
-      try {
-        filter.company = require('mongoose').Types.ObjectId(company);
-      } catch {
-        // If not a valid ObjectId, search by company name
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(company)) {
+        filter.company = company;
+      } else {
         const Company = require('../models/company.model');
         const companies = await Company.find({ name: new RegExp(company, 'i') }).select('_id');
         const companyIds = companies.map((c) => c._id);
-        if (companyIds.length > 0) {
-          filter.company = { $in: companyIds };
-        }
+        filter.company = { $in: companyIds };
       }
     }
 
-    // FILTER: Mode filter (on-campus, off-campus, online)
+    // FILTER: Mode filter (on-campus, off-campus, online, offline, hybrid)
     if (mode) {
-      const validModes = ['on-campus', 'off-campus', 'online'];
-      if (validModes.includes(mode.toLowerCase())) {
-        filter.mode = mode.toLowerCase();
-      }
+      filter.mode = mode.toLowerCase();
     }
 
     // PAGINATION: Build query
     let query = PlacementDrive.find(filter)
-      .populate('company', 'name defaultPackage eligibleDepartments minimumCgpa')
+      .populate('company', 'companyId name package defaultPackage eligibleDepartments minimumCgpa driveDate status')
       .populate('createdBy', 'name email');
 
     // SORT: Apply sorting

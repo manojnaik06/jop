@@ -39,6 +39,11 @@ const StudentProfileSchema = new mongoose.Schema(
       min: [0, 'CGPA cannot be negative'],
       max: [10, 'CGPA cannot exceed 10'],
     },
+    branch: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     departments: {
       type: [String],
       default: [],
@@ -71,7 +76,7 @@ const StudentProfileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Sync name/email from linked User on save if missing
+// Sync name/email from linked User on save and sanitize values
 StudentProfileSchema.pre('save', async function (next) {
   try {
     const User = mongoose.model('User');
@@ -81,6 +86,18 @@ StudentProfileSchema.pre('save', async function (next) {
         if (!this.name) this.name = user.name || '';
         if (!this.email) this.email = user.email || '';
       }
+    }
+
+    // SANITIZATION: Name (Title Case), Email (lowercase), Branch (uppercase)
+    if (this.name) {
+      this.name = this.name.trim().replace(/\b\w/g, c => c.toUpperCase());
+    }
+    if (this.email) {
+      this.email = this.email.trim().toLowerCase();
+    }
+    if (this.branch) {
+      this.branch = this.branch.trim().toUpperCase();
+      this.departments = [this.branch];
     }
   } catch (err) {
     return next(err);

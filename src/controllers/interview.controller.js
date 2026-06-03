@@ -3,6 +3,125 @@ const Application = require('../models/application.model');
 const User = require('../models/user.model');
 const { successResponse, errorResponse } = require('../utils/response.util');
 
+const formatInterview = async (interview) => {
+  if (!interview) return null;
+  const intObj = interview.toObject ? interview.toObject() : interview;
+  
+  // Map scheduledAt to interviewDate
+  if (intObj.scheduledAt) {
+    intObj.interviewDate = intObj.scheduledAt;
+  }
+  
+  // Format interviewer name as string
+  if (intObj.interviewer && typeof intObj.interviewer === 'object') {
+    intObj.interviewer = intObj.interviewer.name || '';
+  } else if (intObj.interviewer && require('mongoose').Types.ObjectId.isValid(intObj.interviewer)) {
+    const User = require('../models/user.model');
+    const user = await User.findById(intObj.interviewer).lean();
+    intObj.interviewer = user ? user.name : '';
+  }
+  
+  // Format application
+  let appRecord = intObj.applicationId;
+  if (appRecord) {
+    if (typeof appRecord !== 'object') {
+      const Application = require('../models/application.model');
+      appRecord = await Application.findById(appRecord).lean();
+    }
+    
+    if (appRecord) {
+      const StudentProfile = require('../models/studentProfile.model');
+      const Company = require('../models/company.model');
+      const PlacementDrive = require('../models/placementDrive.model');
+      const User = require('../models/user.model');
+      
+      let studentUser = appRecord.studentId;
+      if (studentUser && typeof studentUser !== 'object') {
+        studentUser = await User.findById(studentUser).lean();
+      }
+      
+      let studentData = null;
+      if (studentUser) {
+        const profile = await StudentProfile.findOne({ userId: studentUser._id });
+        studentData = {
+          _id: profile ? profile._id : studentUser._id,
+          studentId: profile ? (profile.studentId || profile.rollNumber) : '',
+          name: studentUser.name || '',
+          email: studentUser.email || '',
+          department: profile ? profile.branch : '',
+          cgpa: profile ? profile.cgpa : 0,
+          skills: profile ? profile.skills : [],
+          graduationYear: profile ? profile.graduationYear : null,
+          phone: profile ? profile.phone : '',
+          status: profile ? profile.status : 'active',
+          createdAt: profile ? profile.createdAt : undefined,
+          updatedAt: profile ? profile.updatedAt : undefined,
+        };
+      }
+      
+      let driveRecord = appRecord.driveId;
+      if (driveRecord && typeof driveRecord !== 'object') {
+        driveRecord = await PlacementDrive.findById(driveRecord).lean();
+      }
+      
+      let driveData = null;
+      if (driveRecord) {
+        let companyRecord = driveRecord.company;
+        if (companyRecord && typeof companyRecord !== 'object') {
+          companyRecord = await Company.findById(companyRecord).lean();
+        }
+        
+        const companyData = companyRecord ? {
+          _id: companyRecord._id,
+          companyId: companyRecord.companyId,
+          name: companyRecord.name,
+          role: driveRecord.title,
+          package: driveRecord.packageLpa || companyRecord.defaultPackage || 0,
+          eligibleDepartments: companyRecord.eligibleDepartments || [],
+          minimumCgpa: driveRecord.minimumCgpa || companyRecord.minimumCgpa || 0,
+          driveDate: driveRecord.registrationDeadline,
+          status: driveRecord.status || 'upcoming',
+          createdAt: companyRecord.createdAt,
+          updatedAt: companyRecord.updatedAt,
+        } : null;
+
+        driveData = {
+          _id: driveRecord._id,
+          driveId: driveRecord.driveId,
+          company: companyData,
+          title: driveRecord.title,
+          mode: driveRecord.mode,
+          location: driveRecord.location,
+          registrationDeadline: driveRecord.registrationDeadline,
+          rounds: driveRecord.rounds || [],
+          status: driveRecord.status,
+          createdAt: driveRecord.createdAt,
+          updatedAt: driveRecord.updatedAt,
+        };
+      }
+      
+      const appData = {
+        _id: appRecord._id,
+        applicationId: appRecord.applicationId,
+        student: studentData,
+        studentId: studentData,
+        drive: driveData,
+        driveId: driveData,
+        currentRound: appRecord.currentRound === 1 ? 'Applied' : (appRecord.currentRound === 2 ? 'Aptitude' : 'Technical'),
+        status: appRecord.status,
+        appliedAt: appRecord.appliedAt,
+        createdAt: appRecord.createdAt,
+        updatedAt: appRecord.updatedAt,
+      };
+      
+      intObj.application = appData;
+      intObj.applicationId = appData;
+    }
+  }
+  
+  return intObj;
+};
+
 // @desc    Get all interviews with pagination, search, and filtering
 // @route   GET /api/interviews
 // @access  Private (Placement_officer/Admin only)
@@ -33,7 +152,7 @@ const getInterviews = async (req, res) => {
 
     // FILTER: Result filter
     if (result) {
-      const validResults = ['pending', 'passed', 'failed'];
+      const validResults = ['pending', 'passed', 'failed', 'pass', 'fail'];
       if (validResults.includes(result.toLowerCase())) {
         filter.result = result.toLowerCase();
       }
@@ -77,8 +196,13 @@ const getInterviews = async (req, res) => {
     const total = await Interview.countDocuments(filter);
     const totalPages = Math.ceil(total / parseInt(limit));
 
+    const formattedInts = [];
+    for (const int of interviews) {
+      formattedInts.push(await formatInterview(int));
+    }
+
     return successResponse(res, 200, 'Interviews fetched successfully', {
-      interviews,
+      interviews: formattedInts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -105,7 +229,8 @@ const getInterviewById = async (req, res) => {
       return errorResponse(res, 404, 'Interview not found');
     }
 
-    return successResponse(res, 200, 'Interview fetched successfully', interview);
+    const formatted = await formatInterview(interview);
+    return successResponse(res, 200, 'Interview fetched successfully', formatted);
   } catch (error) {
     return errorResponse(res, 500, error.message);
   }
@@ -152,7 +277,7 @@ const scheduleInterview = async (req, res) => {
       return errorResponse(
         res,
         400,
-        'Cannot schedule interview for a rejected application. Application must be in applied or shortlisted status.'
+        'Rejected application cannot receive interview'
       );
     }
 
@@ -177,7 +302,8 @@ const scheduleInterview = async (req, res) => {
     await interview.populate('applicationId', 'studentId driveId status');
     await interview.populate('interviewer', 'name email');
 
-    return successResponse(res, 201, 'Interview scheduled successfully', interview);
+    const formatted = await formatInterview(interview);
+    return successResponse(res, 201, 'Interview scheduled successfully', formatted);
   } catch (error) {
     return errorResponse(res, 400, error.message);
   }
@@ -200,7 +326,7 @@ const updateInterviewResult = async (req, res) => {
 
     // Validate result if provided
     if (result !== undefined) {
-      const validResults = ['pending', 'passed', 'failed'];
+      const validResults = ['pending', 'passed', 'failed', 'pass', 'fail'];
       if (!validResults.includes(result.toLowerCase())) {
         return errorResponse(res, 400, `Result must be one of: ${validResults.join(', ')}`);
       }
@@ -209,7 +335,7 @@ const updateInterviewResult = async (req, res) => {
     // WORKFLOW: Selected candidates cannot be rescheduled
     const application = interview.applicationId;
     if (application.status === 'selected' && scheduledAt && scheduledAt !== interview.scheduledAt.toISOString()) {
-      return errorResponse(res, 400, 'Cannot reschedule interview for a selected candidate');
+      return errorResponse(res, 400, 'Selected candidate cannot be rescheduled');
     }
 
     // Validate new interviewer if provided
@@ -245,7 +371,8 @@ const updateInterviewResult = async (req, res) => {
       .populate('applicationId', 'studentId driveId status cgpa')
       .populate('interviewer', 'name email');
 
-    return successResponse(res, 200, 'Interview updated successfully', updated);
+    const formatted = await formatInterview(updated);
+    return successResponse(res, 200, 'Interview updated successfully', formatted);
   } catch (error) {
     return errorResponse(res, 400, error.message);
   }
@@ -283,7 +410,11 @@ const getApplicationInterviews = async (req, res) => {
       .populate('interviewer', 'name email')
       .sort({ scheduledAt: -1 });
 
-    return successResponse(res, 200, 'Application interviews fetched successfully', interviews);
+    const formattedInts = [];
+    for (const int of interviews) {
+      formattedInts.push(await formatInterview(int));
+    }
+    return successResponse(res, 200, 'Application interviews fetched successfully', formattedInts);
   } catch (error) {
     return errorResponse(res, 500, error.message);
   }

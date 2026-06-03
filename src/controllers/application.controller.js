@@ -4,6 +4,83 @@ const StudentProfile = require('../models/studentProfile.model');
 const Company = require('../models/company.model');
 const { successResponse, errorResponse } = require('../utils/response.util');
 
+const formatApplication = async (app) => {
+  if (!app) return null;
+  const appObj = app.toObject ? app.toObject() : app;
+  
+  let studentUser = appObj.studentId;
+  if (studentUser) {
+    const User = require('../models/user.model');
+    if (typeof studentUser !== 'object') {
+      studentUser = await User.findById(studentUser).lean();
+    }
+    if (studentUser) {
+      const profile = await StudentProfile.findOne({ userId: studentUser._id });
+      const studentData = {
+        _id: profile ? profile._id : studentUser._id,
+        studentId: profile ? (profile.studentId || profile.rollNumber) : '',
+        name: studentUser.name || '',
+        email: studentUser.email || '',
+        department: profile ? profile.branch : '',
+        cgpa: profile ? profile.cgpa : 0,
+        skills: profile ? profile.skills : [],
+        graduationYear: profile ? profile.graduationYear : null,
+        phone: profile ? profile.phone : '',
+        status: profile ? profile.status : 'active',
+        createdAt: profile ? profile.createdAt : undefined,
+        updatedAt: profile ? profile.updatedAt : undefined,
+      };
+      appObj.student = studentData;
+      appObj.studentId = studentData;
+    }
+  }
+  
+  let driveRecord = appObj.driveId;
+  if (driveRecord) {
+    if (typeof driveRecord !== 'object') {
+      driveRecord = await PlacementDrive.findById(driveRecord).lean();
+    }
+    if (driveRecord) {
+      let companyRecord = driveRecord.company;
+      if (companyRecord && typeof companyRecord !== 'object') {
+        companyRecord = await Company.findById(companyRecord).lean();
+      }
+      
+      const companyData = companyRecord ? {
+        _id: companyRecord._id,
+        companyId: companyRecord.companyId,
+        name: companyRecord.name,
+        role: driveRecord.title,
+        package: driveRecord.packageLpa || companyRecord.defaultPackage || 0,
+        eligibleDepartments: companyRecord.eligibleDepartments || [],
+        minimumCgpa: driveRecord.minimumCgpa || companyRecord.minimumCgpa || 0,
+        driveDate: driveRecord.registrationDeadline,
+        status: driveRecord.status || 'upcoming',
+        createdAt: companyRecord.createdAt,
+        updatedAt: companyRecord.updatedAt,
+      } : null;
+
+      const driveData = {
+        _id: driveRecord._id,
+        driveId: driveRecord.driveId,
+        company: companyData,
+        title: driveRecord.title,
+        mode: driveRecord.mode,
+        location: driveRecord.location,
+        registrationDeadline: driveRecord.registrationDeadline,
+        rounds: driveRecord.rounds || [],
+        status: driveRecord.status,
+        createdAt: driveRecord.createdAt,
+        updatedAt: driveRecord.updatedAt,
+      };
+      appObj.drive = driveData;
+      appObj.driveId = driveData;
+    }
+  }
+  
+  return appObj;
+};
+
 // @desc    Get all applications with pagination, search, and filtering
 // @route   GET /api/applications
 // @access  Private (Placement_officer/Admin can see all; students see own)
@@ -113,8 +190,13 @@ const getApplications = async (req, res) => {
     const total = await Application.countDocuments(filter);
     const totalPages = Math.ceil(total / parseInt(limit));
 
+    const formattedApps = [];
+    for (const app of applications) {
+      formattedApps.push(await formatApplication(app));
+    }
+
     return successResponse(res, 200, 'Applications fetched successfully', {
-      applications,
+      applications: formattedApps,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -150,7 +232,8 @@ const getApplicationById = async (req, res) => {
       return errorResponse(res, 403, 'Not authorized to view this application');
     }
 
-    return successResponse(res, 200, 'Application fetched successfully', application);
+    const formatted = await formatApplication(application);
+    return successResponse(res, 200, 'Application fetched successfully', formatted);
   } catch (error) {
     return errorResponse(res, 500, error.message);
   }
@@ -238,7 +321,8 @@ const createApplication = async (req, res) => {
       populate: { path: 'company', select: 'name' },
     });
 
-    return successResponse(res, 201, 'Application submitted successfully', application);
+    const formatted = await formatApplication(application);
+    return successResponse(res, 201, 'Application submitted successfully', formatted);
   } catch (error) {
     if (error.code === 11000) {
       return errorResponse(res, 409, 'You have already applied for this drive');
@@ -284,7 +368,8 @@ const updateApplication = async (req, res) => {
       .populate('studentId', 'name email')
       .populate('driveId', 'title company');
 
-    return successResponse(res, 200, 'Application updated successfully', updated);
+    const formatted = await formatApplication(updated);
+    return successResponse(res, 200, 'Application updated successfully', formatted);
   } catch (error) {
     return errorResponse(res, 400, error.message);
   }

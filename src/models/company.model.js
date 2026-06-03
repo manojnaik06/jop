@@ -18,6 +18,18 @@ const CompanySchema = new mongoose.Schema(
       min: [0, 'Package cannot be negative'],
       default: 0,
     },
+    package: {
+      type: Number,
+      min: [0, 'Package cannot be negative'],
+      default: 0,
+    },
+    role: {
+      type: String,
+      default: '',
+    },
+    driveDate: {
+      type: Date,
+    },
     eligibleDepartments: {
       type: [String],
       default: [],
@@ -30,7 +42,6 @@ const CompanySchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'inactive'],
       default: 'active',
     },
     externalId: {

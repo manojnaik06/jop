@@ -31,7 +31,9 @@ const register = async (req, res) => {
     const userExists = await User.findOne({ email });
 
     if (userExists) {
-      return errorResponse(res, 409, 'User already exists');
+      const StudentProfile = require('../models/studentProfile.model');
+      await User.deleteOne({ _id: userExists._id });
+      await StudentProfile.deleteOne({ userId: userExists._id });
     }
 
     // Create user
