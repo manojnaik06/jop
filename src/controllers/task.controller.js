@@ -18,13 +18,13 @@ const getAllTasks = async (req, res) => {
   }
 
   const tasks = await Task.find(filter).sort({ createdAt: -1 });
-  return successResponse(res, 'Tasks fetched successfully', tasks);
+  return successResponse(res, 200, 'Tasks fetched successfully', tasks);
 };
 
 const getTaskById = async (req, res) => {
   const task = await Task.findById(req.params.id);
   if (!task) return errorResponse(res, 404, 'Task not found');
-  return successResponse(res, 'Task fetched successfully', task);
+  return successResponse(res, 200, 'Task fetched successfully', task);
 };
 
 const createTask = async (req, res) => {
@@ -34,7 +34,7 @@ const createTask = async (req, res) => {
   }
 
   const task = await Task.create(payload);
-  return successResponse(res, 'Task created successfully', task);
+  return successResponse(res, 200, 'Task created successfully', task);
 };
 
 const updateTask = async (req, res) => {
@@ -43,13 +43,13 @@ const updateTask = async (req, res) => {
     runValidators: true,
   });
   if (!task) return errorResponse(res, 404, 'Task not found');
-  return successResponse(res, 'Task updated successfully', task);
+  return successResponse(res, 200, 'Task updated successfully', task);
 };
 
 const deleteTask = async (req, res) => {
   const task = await Task.findByIdAndDelete(req.params.id);
   if (!task) return errorResponse(res, 404, 'Task not found');
-  return successResponse(res, 'Task deleted successfully', task);
+  return successResponse(res, 200, 'Task deleted successfully', task);
 };
 
 const getStats = async (req, res) => {
@@ -71,7 +71,7 @@ const getStats = async (req, res) => {
     }, {}),
   };
 
-  return successResponse(res, 'Stats fetched successfully', stats);
+  return successResponse(res, 200, 'Stats fetched successfully', stats);
 };
 
 module.exports = { getAllTasks, getTaskById, createTask, updateTask, deleteTask, getStats };

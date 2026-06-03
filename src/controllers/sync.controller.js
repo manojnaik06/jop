@@ -6,7 +6,7 @@ const { successResponse, errorResponse } = require('../utils/response.util');
 
 const syncHandler = async (req, res) => {
   try {
-    await syncDataset();
+    const syncResult = await syncDataset();
 
     const students = await StudentProfile.countDocuments();
     const companies = await PlacementDrive.distinct('companyName').then((names) => names.length);
@@ -14,6 +14,7 @@ const syncHandler = async (req, res) => {
     const applications = await Application.countDocuments();
 
     return successResponse(res, 200, 'Database synced successfully', {
+      ...syncResult,
       students,
       companies,
       drives,

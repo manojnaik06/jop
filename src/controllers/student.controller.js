@@ -111,5 +111,3 @@ module.exports = {
   getStudents,
   getStudentById,
 };
-  getStudentById,
-};

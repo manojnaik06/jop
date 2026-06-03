@@ -76,7 +76,7 @@ const syncDataset = async () => {
     inserted = result.insertedCount || operations.length;
   }
 
-  return { totalFetched, inserted, duplicates, rejected };
+  return { success: true, totalFetched, inserted, duplicates, rejected };
 };
 
 module.exports = { syncDataset };
