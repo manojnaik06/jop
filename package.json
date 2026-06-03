@@ -1,0 +1,29 @@
+{
+  "name": "mern-assessment-backend",
+  "version": "1.0.0",
+  "description": "Backend for MERN assessment with sync, task CRUD, stats, and health APIs.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dns": "^0.2.2",
+    "dotenv": "^16.4.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^7.6.1",
+    "morgan": "^1.10.0",
+    "validator": "^13.9.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^7.2.2"
+  }
+}
